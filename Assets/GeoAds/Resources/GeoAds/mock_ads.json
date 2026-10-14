@@ -1,0 +1,64 @@
+{
+  "offers": [
+    {
+      "id": "mock-001",
+      "title": "Aqua Burger 20% Off",
+      "description": "20% off any combo meal within 2 km of the beach.",
+      "businessLogoUrl": "https://raw.githubusercontent.com/nikhil0072000/Lootlio_SRC/main/Assets/GeoAds/logo/Logo1.png",
+      "productImageUrl": "https://raw.githubusercontent.com/nikhil0072000/Lootlio_SRC/main/Assets/GeoAds/Product/Product1.jpg",
+      "imageUrl": "https://raw.githubusercontent.com/nikhil0072000/Lootlio_SRC/main/Assets/GeoAds/Product/Product1.jpg",
+      "placeholderColor": "2E6FB7FF",
+      "latitude": 12.9736,
+      "longitude": 77.5963,
+      "distanceKm": 0.4,
+      "storeName": "Aqua Burger",
+      "isCoupon": true,
+      "coupon": {
+        "code": "",
+        "discountText": "20% OFF",
+        "expiresAt": "2026-12-31T23:59:59Z",
+        "terms": "One per table. Show this screen."
+      }
+    },
+    {
+      "id": "mock-002",
+      "title": "Coral Cafe BOGO",
+      "description": "Buy one get one free on iced teas. 500 m away.",
+      "businessLogoUrl": "https://raw.githubusercontent.com/nikhil0072000/Lootlio_SRC/main/Assets/GeoAds/logo/Logo2.png",
+      "productImageUrl": "https://raw.githubusercontent.com/nikhil0072000/Lootlio_SRC/main/Assets/GeoAds/Product/Product2.jpg",
+      "imageUrl": "https://raw.githubusercontent.com/nikhil0072000/Lootlio_SRC/main/Assets/GeoAds/Product/Product2.jpg",
+      "placeholderColor": "1FAF7AFF",
+      "latitude": 12.9702,
+      "longitude": 77.5921,
+      "distanceKm": 0.6,
+      "storeName": "Coral Cafe",
+      "isCoupon": true,
+      "coupon": {
+        "code": "",
+        "discountText": "BOGO",
+        "expiresAt": "2026-11-30T23:59:59Z",
+        "terms": "Till 6 PM daily."
+      }
+    },
+    {
+      "id": "mock-003",
+      "title": "Pearl Scoops Free Scoop",
+      "description": "Free second scoop on waffle cones today only.",
+      "businessLogoUrl": "https://raw.githubusercontent.com/nikhil0072000/Lootlio_SRC/main/Assets/GeoAds/logo/Logo3.png",
+      "productImageUrl": "https://raw.githubusercontent.com/nikhil0072000/Lootlio_SRC/main/Assets/GeoAds/Product/Product3.jpg",
+      "imageUrl": "https://raw.githubusercontent.com/nikhil0072000/Lootlio_SRC/main/Assets/GeoAds/Product/Product3.jpg",
+      "placeholderColor": "B76ACFFF",
+      "latitude": 12.9789,
+      "longitude": 77.5991,
+      "distanceKm": 1.1,
+      "storeName": "Pearl Scoops",
+      "isCoupon": true,
+      "coupon": {
+        "code": "",
+        "discountText": "FREE SCOOP",
+        "expiresAt": "2026-10-31T23:59:59Z",
+        "terms": "While stock lasts."
+      }
+    }
+  ]
+}
