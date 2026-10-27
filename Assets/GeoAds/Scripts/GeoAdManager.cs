@@ -11,8 +11,9 @@ namespace GeoAds
     /// </summary>
     public class GeoAdManager : MonoBehaviour
     {
-        [SerializeField] private bool useMock = true;
-        [SerializeField] private string httpBaseUrl = "https://your-ad-api.example.com";
+        [SerializeField] private bool useMock = false;
+        [Tooltip("Full URL of the geo ad feed. A base URL (no http/https) still uses the legacy /api/ads/nearby path.")]
+        [SerializeField] private string apiUrl = "https://lootlio-one.vercel.app/api/mock";
         [SerializeField] private float fetchRadiusKm = 25f;
         [SerializeField] private GeoAdCarousel carousel; // optional; auto-built if null
 
@@ -44,16 +45,13 @@ namespace GeoAds
         private static GeoAdManager EnsureInstance()
         {
             if (instance != null)
-                return instance_;
+                return instance;
 
             var host = new GameObject("GeoAdManager");
             instance = host.AddComponent<GeoAdManager>();
             DontDestroyOnLoad(host);
             return instance;
         }
-
-        // Unity 6 compile: field used by EnsureInstance (renamed to avoid CS0165 path).
-        private static GeoAdManager instance_ => instance;
 
         private void Awake()
         {
@@ -93,17 +91,31 @@ namespace GeoAds
                     }
                 });
 
-                IGeoAdSource source = useMock
+                IGeoAdSource primary = useMock
                     ? (IGeoAdSource)new GeoMockAdSource()
-                    : new GeoHttpAdSource(httpBaseUrl);
+                    : new GeoHttpAdSource(apiUrl);
 
                 bool ok = false;
                 GeoAdResponse fresh = null;
                 string fetchError = null;
 
-                yield return source.FetchOffers(lat, lng, fetchRadiusKm,
+                yield return primary.FetchOffers(lat, lng, fetchRadiusKm,
                     r => { fresh = r; ok = true; },
                     e => { fetchError = e; });
+
+                // live feed failed or came back empty -> bundled mock_ads.json beats an empty strip
+                if ((!ok || fresh == null || fresh.offers == null || fresh.offers.Length == 0) && !useMock)
+                {
+                    Debug.LogWarning("[GeoAds] live feed unusable (" + (fetchError ?? "no offers")
+                        + ") - falling back to Resources/GeoAds/mock_ads.json");
+
+                    fetchError = null;
+                    ok = false;
+                    fresh = null;
+                    yield return new GeoMockAdSource().FetchOffers(lat, lng, fetchRadiusKm,
+                        r => { fresh = r; ok = true; },
+                        e => { fetchError = e; });
+                }
 
                 if (ok && fresh != null && fresh.offers != null && fresh.offers.Length > 0)
                 {
@@ -119,6 +131,7 @@ namespace GeoAds
                 }
             }
 
+            // release the guard here so a cache hit does not lock out every later Show()
             fetchInFlight = false;
 
             if (response == null || response.offers == null || response.offers.Length == 0)
@@ -168,4 +181,4 @@ namespace GeoAds
                 runtimeCarousel.Hide();
         }
     }
-}
+}

@@ -1,36 +1,64 @@
-using System.Collections.Generic;
+using System.Collections;
+using DG.Tweening;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace GeoAds
 {
     /// <summary>
-    /// Ad carousel. Two ways to use it:
-    /// - hand-made: Cards is filled in the Inspector with cards that already exist
-    ///   under this object. Nothing is created, moved or resized; offers only fill
-    ///   those cards and spare cards are hidden.
-    /// - code-built (Cards empty): full-screen horizontal ScrollRect that builds its
-    ///   own canvas, viewport, and cards entirely from code — no prefab or scene
-    ///   wiring required.
+    /// Bottom, full-width ad carousel: one card fills the viewport, swiping moves exactly one
+    /// card and release snaps to that page.
+    ///
+    /// Three ways to use it:
+    /// - template (the normal path): CardTemplate is a card that already exists under Content in
+    ///   the prefab. Populate() clones it once per offer, so editing that one card in the editor
+    ///   edits every card. Nothing is positioned by code - all rects come from the prefab.
+    /// - hand-made: Cards is filled in the Inspector with cards that already exist. Offers fill
+    ///   those cards, spare cards are hidden.
+    /// - code-built (CardTemplate and Cards both empty): builds its own canvas, viewport and
+    ///   cards from code - no prefab or scene wiring required.
     /// </summary>
-    public class GeoAdCarousel : MonoBehaviour
+    public class GeoAdCarousel : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
     {
+        [Header("Cards")]
+        [Tooltip("The one card to clone for every offer. Leave empty to use Hand-made Cards.")]
+        [SerializeField] private GeoAdCard cardTemplate;
+        [Tooltip("Legacy hand-made cards, used only when Card Template is empty.")]
         [SerializeField] private GeoAdCard[] cards;
+
+        [Header("Wiring (assigned by Tools > GeoAds > Build Neon Carousel)")]
+        [SerializeField] private RectTransform content;
+        [SerializeField] private ScrollRect scroll;
         [SerializeField] private Button closeButton; // optional
+
+        [Header("Paging")]
+        [Tooltip("Seconds to glide to the next card after your finger lifts. 0 = jump.")]
+        [SerializeField] private float snapSeconds = 0.25f;
 
         private const int SortOrder = 900;   // above popups, below debugging overlays
 
         private Canvas canvas;
-        private RectTransform content;
         private bool closeHooked;
-        private readonly List<GameObject> builtCards = new List<GameObject>();
+        private readonly System.Collections.Generic.List<GameObject> clones = new System.Collections.Generic.List<GameObject>();
+        private int pageCount;
 
+        private bool HasTemplate => cardTemplate != null;
         private bool IsHandMade => cards != null && cards.Length > 0;
+
+        /// <summary>
+        /// True between the start of a swipe and the frame after it ends, so a tap that was
+        /// really a page-change never triggers a card's button.
+        /// </summary>
+        public static bool InputLocked { get; private set; }
 
         public void Show()
         {
-            if (!IsHandMade)
+            if (!HasTemplate && !IsHandMade)
                 EnsureBuilt();
+            else
+                ResolveContent();
+
             HookCloseButton();
             gameObject.SetActive(true);
         }
@@ -43,42 +71,53 @@ namespace GeoAds
 
         public void Populate(GeoAdOffer[] offers)
         {
+            if (HasTemplate)
+            {
+                PopulateFromTemplate(offers);
+                return;
+            }
             if (IsHandMade)
             {
                 PopulateHandMade(offers);
                 return;
             }
+            PopulateCodeBuilt(offers);
+        }
 
-            EnsureBuilt();
+        /// <summary>Clones CardTemplate once per offer, so all 18 cards are identical by construction.</summary>
+        private void PopulateFromTemplate(GeoAdOffer[] offers)
+        {
+            ResolveContent();
 
-            foreach (GameObject card in builtCards)
-                if (card != null)
-                    Destroy(card);
-            builtCards.Clear();
+            for (int i = clones.Count - 1; i >= 0; i--)
+                if (clones[i] != null)
+                    Destroy(clones[i]);
+            clones.Clear();
 
-            if (offers == null)
-                return;
-
-            float spacing = 40f;
-            float x = 0f;
-            foreach (GeoAdOffer offer in offers)
+            int count = offers != null ? offers.Length : 0;
+            if (count == 0)
             {
-                var cardGo = new GameObject("GeoAdCard_" + (offer.id ?? x.ToString("0")),
-                    typeof(RectTransform), typeof(Image));
-                var card = cardGo.AddComponent<GeoAdCard>();
-                card.Build(content, offer);
-                var rect = (RectTransform)cardGo.transform;
-                // left-middle, so x is measured from the content's left edge
-                rect.anchorMin = new Vector2(0f, 0.5f);
-                rect.anchorMax = new Vector2(0f, 0.5f);
-                rect.pivot = new Vector2(0f, 0.5f);
-                rect.anchoredPosition = new Vector2(x + 20, 0);
-                x += rect.sizeDelta.x + spacing;
-                builtCards.Add(cardGo);
+                cardTemplate.gameObject.SetActive(false);
+                pageCount = 0;
+                return;
             }
 
-            if (content != null)
-                content.sizeDelta = new Vector2(x, content.sizeDelta.y);
+            cardTemplate.gameObject.SetActive(true);
+            cardTemplate.Bind(offers[0]);
+
+            for (int i = 1; i < count; i++)
+            {
+                GameObject clone = Instantiate(cardTemplate.gameObject, content);
+                clone.name = "GeoAdCard_" + (i + 1);
+                clone.SetActive(true);
+                GeoAdCard card = clone.GetComponent<GeoAdCard>();
+                if (card != null)
+                    card.Bind(offers[i]);
+                clones.Add(clone);
+            }
+
+            pageCount = count;
+            RebuildLayout();
         }
 
         /// <summary>Offer 1..N goes to card 1..N in list order; spare cards are hidden.</summary>
@@ -99,8 +138,135 @@ namespace GeoAds
                     card.Bind(offers[i]);
             }
 
+            pageCount = Mathf.Min(offerCount, cards.Length);
             if (offerCount > cards.Length)
                 Debug.LogWarning("[GeoAds] " + (offerCount - cards.Length) + " offer(s) not shown: the carousel has only " + cards.Length + " card(s).");
+
+            RebuildLayout();
+        }
+
+        private void PopulateCodeBuilt(GeoAdOffer[] offers)
+        {
+            EnsureBuilt();
+
+            for (int i = clones.Count - 1; i >= 0; i--)
+                if (clones[i] != null)
+                    Destroy(clones[i]);
+            clones.Clear();
+
+            if (offers == null)
+            {
+                pageCount = 0;
+                return;
+            }
+
+            foreach (GeoAdOffer offer in offers)
+            {
+                if (offer == null)
+                    continue;
+                var cardGo = new GameObject("GeoAdCard", typeof(RectTransform), typeof(Image));
+                cardGo.layer = gameObject.layer;
+                var card = cardGo.AddComponent<GeoAdCard>();
+                card.Build(content, offer);
+                clones.Add(cardGo);
+            }
+
+            pageCount = clones.Count;
+            RebuildLayout();
+        }
+
+        // ---------------------------------------------------------------- paging
+
+        public void OnBeginDrag(PointerEventData eventData)
+        {
+            InputLocked = true;
+            if (content != null)
+                content.DOKill(false);
+        }
+
+        public void OnDrag(PointerEventData eventData)
+        {
+            // ScrollRect does the work; this handler only exists so OnBeginDrag is called.
+        }
+
+        public void OnEndDrag(PointerEventData eventData)
+        {
+            SnapToNearestPage();
+            StartCoroutine(UnlockInputNextFrame());
+        }
+
+        private IEnumerator UnlockInputNextFrame()
+        {
+            yield return null; // the click of this same release is dispatched before we resume
+            InputLocked = false;
+        }
+
+        private void SnapToNearestPage()
+        {
+            if (scroll == null || content == null || pageCount <= 1)
+                return;
+
+            float pageWidth = PageWidth();
+            if (pageWidth <= 1f)
+                return;
+
+            int page = Mathf.Clamp(Mathf.RoundToInt(-content.anchoredPosition.x / pageWidth), 0, pageCount - 1);
+            float target = -page * pageWidth;
+
+            scroll.StopMovement();
+            if (snapSeconds <= 0f || Mathf.Abs(content.anchoredPosition.x - target) < 0.5f)
+            {
+                Vector2 pos = content.anchoredPosition;
+                pos.x = target;
+                content.anchoredPosition = pos;
+                return;
+            }
+
+            content.DOKill(true);
+            content.DOAnchorPosX(target, snapSeconds).SetEase(Ease.OutCubic).SetUpdate(true);
+        }
+
+        /// <summary>One page is one card: content width / card count (padding and spacing are 0).</summary>
+        private float PageWidth()
+        {
+            if (content == null || pageCount <= 0)
+                return 0f;
+            return content.rect.width / pageCount;
+        }
+
+        private void RebuildLayout()
+        {
+            if (content == null)
+                return;
+            LayoutRebuilder.ForceRebuildLayoutImmediate(content);
+        }
+
+        private void OnEnable()
+        {
+            InputLocked = false;
+        }
+
+        private void OnDisable()
+        {
+            InputLocked = false;
+            if (content != null)
+                content.DOKill(false);
+        }
+
+        // ---------------------------------------------------------------- wiring
+
+        private void ResolveContent()
+        {
+            if (content == null)
+            {
+                Transform found = transform.Find("Viewport/Content");
+                if (found != null)
+                    content = found as RectTransform;
+            }
+            if (scroll == null)
+                scroll = GetComponent<ScrollRect>();
+            if (content != null && scroll == null)
+                scroll = content.GetComponentInParent<ScrollRect>();
         }
 
         private void HookCloseButton()
@@ -111,9 +277,12 @@ namespace GeoAds
             closeHooked = true;
         }
 
+        // ---------------------------------------------------------------- code-built fallback
+
         private void EnsureBuilt()
         {
-            if (canvas != null)
+            ResolveContent();
+            if (canvas != null && content != null)
                 return;
 
             canvas = GetComponent<Canvas>();
@@ -122,15 +291,25 @@ namespace GeoAds
                 canvas = gameObject.AddComponent<Canvas>();
                 var scaler = gameObject.AddComponent<CanvasScaler>();
                 scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-                scaler.referenceResolution = new Vector2(640, 960); // main gameplay canvas matches this
-                scaler.matchWidthOrHeight = 1f;
+                scaler.referenceResolution = new Vector2(640, 960);
+                scaler.matchWidthOrHeight = 0f; // canvas is always 640 units wide -> cards fit full screen
                 gameObject.AddComponent<GraphicRaycaster>();
             }
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = SortOrder;
-            if (gameObject.scene.IsValid() == false)
+
+            if (GetComponent<Image>() == null)
             {
-                // never parented — fine: root-level persistent object
+                var bg = gameObject.AddComponent<Image>();
+                bg.color = new Color(0.04f, 0.02f, 0.13f, 0.55f);
+            }
+            if (GetComponent<ScrollRect>() == null)
+            {
+                var sr = gameObject.AddComponent<ScrollRect>();
+                sr.horizontal = true;
+                sr.vertical = false;
+                sr.inertia = true;
+                scroll = sr;
             }
 
             var viewport = new GameObject("Viewport", typeof(RectTransform), typeof(RectMask2D));
@@ -140,20 +319,33 @@ namespace GeoAds
             vrect.anchorMax = Vector2.one;
             vrect.offsetMin = Vector2.zero;
             vrect.offsetMax = Vector2.zero;
-
-            var scroll = gameObject.AddComponent<ScrollRect>();
-            scroll.horizontal = true;
-            scroll.vertical = false;
-            scroll.viewport = vrect;
+            var viewportImage = viewport.AddComponent<Image>();
+            viewportImage.color = new Color(0f, 0f, 0f, 0f); // transparent, but catches the drag
 
             var contentGo = new GameObject("Content", typeof(RectTransform));
             content = (RectTransform)contentGo.transform;
             content.SetParent(vrect, false);
-            content.anchorMin = new Vector2(0f, 0.5f);
-            content.anchorMax = new Vector2(0f, 0.5f);
+            content.anchorMin = new Vector2(0f, 0f);
+            content.anchorMax = new Vector2(0f, 1f);
             content.pivot = new Vector2(0f, 0.5f);
-            content.sizeDelta = new Vector2(0, 260);
+            content.sizeDelta = Vector2.zero;
+
+            var layout = content.gameObject.AddComponent<HorizontalLayoutGroup>();
+            layout.padding = new RectOffset(0, 0, 0, 0);
+            layout.spacing = 0f;
+            layout.childAlignment = TextAnchor.MiddleLeft;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = true;
+            var fitter = content.gameObject.AddComponent<ContentSizeFitter>();
+            fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+            fitter.verticalFit = ContentSizeFitter.FitMode.Unconstrained;
+
+            scroll.viewport = vrect;
             scroll.content = content;
+            scroll.horizontal = true;
+            scroll.vertical = false;
         }
     }
-}
+}
