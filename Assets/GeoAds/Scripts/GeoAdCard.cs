@@ -1,7 +1,5 @@
-using System.Collections;
 using TMPro;
 using UnityEngine;
-using UnityEngine.Networking;
 using UnityEngine.UI;
 
 namespace GeoAds
@@ -35,8 +33,6 @@ namespace GeoAds
         [Header("Legacy")]
         [SerializeField] private bool usePlaceholderColor;
 
-        private const int PictureTimeoutSeconds = 10;
-
         // Neon palette - matches the game art. The frame colour is the only per-offer accent.
         private static readonly Color NeonCyan = ParseHex("#00F0FF", new Color(0f, 0.94f, 1f));
         private static readonly Color NeonMagenta = ParseHex("#FF2BD6", new Color(1f, 0.17f, 0.84f));
@@ -63,17 +59,40 @@ namespace GeoAds
             HookButtons();
             ApplyFrameTheme();
 
-            string productUrl = ResolveProductUrl(offer);
-            if (picture != null)
-                picture.color = string.IsNullOrEmpty(productUrl)
-                    ? ParseColor(offer.placeholderColor, PictureIdle)
-                    : Color.white;
-
             if (usePlaceholderColor && background != null)
                 background.color = ParseColor(offer.placeholderColor, background.color);
 
-            BindSlot(picture, productUrl);
+            // capture the prefab's own sprite/colour before anything is tinted
+            EnsureSlot(picture);
+            EnsureSlot(logoImage);
+
+            BindSlot(picture, ResolveProductUrl(offer));
             BindSlot(logoImage, offer.businessLogoUrl);
+
+            // until (unless) the photo arrives, the picture shows the offer's placeholder colour
+            if (picture != null && slots.TryGetValue(picture, out ImageSlot pictureSlot) && pictureSlot.loadedUrl == null)
+                picture.color = PicturePlaceholder();
+        }
+
+        /// <summary>
+        /// Puts every image back to the prefab's own sprite and colour and drops downloaded
+        /// textures. The carousel calls this on its template before cloning, so a clone never
+        /// copies another offer's photo as its "prefab default".
+        /// </summary>
+        internal void ResetImages()
+        {
+            foreach (ImageSlot slot in slots.Values)
+            {
+                CancelSlot(slot);
+                slot.pendingUrl = null;
+                slot.loadedUrl = null;
+                if (slot.target != null)
+                {
+                    slot.target.sprite = slot.defaultSprite;
+                    slot.target.color = slot.defaultColor;
+                }
+                ReleaseSlotPicture(slot);
+            }
         }
 
         /// <summary>Code-built card: creates its own labels/button. Used only without a prefab.</summary>
@@ -104,14 +123,14 @@ namespace GeoAds
             // a card bound while its carousel was hidden starts its downloads here
             foreach (var slot in slots.Values)
             {
-                if (!string.IsNullOrEmpty(slot.pendingUrl) && slot.loadRoutine == null && isActiveAndEnabled)
-                    slot.loadRoutine = StartCoroutine(LoadPicture(slot));
+                if (!string.IsNullOrEmpty(slot.pendingUrl) && !slot.loading)
+                    StartLoad(slot);
             }
         }
 
         private void OnDisable()
         {
-            // deactivation stops coroutines; the requests must be released by hand
+            // a hidden card drops its downloads; OnEnable starts them again from pendingUrl
             foreach (var slot in slots.Values)
                 CancelSlot(slot);
         }
@@ -241,16 +260,29 @@ namespace GeoAds
             return source.imageUrl; // legacy fallback
         }
 
-        private void BindSlot(Image target, string imageUrl)
+        private ImageSlot EnsureSlot(Image target)
         {
             if (target == null)
-                return;
+                return null;
 
             if (!slots.TryGetValue(target, out ImageSlot slot) || slot == null)
             {
                 slot = new ImageSlot { target = target, defaultSprite = target.sprite, defaultColor = target.color };
                 slots[target] = slot;
             }
+            return slot;
+        }
+
+        private Color PicturePlaceholder()
+        {
+            return ParseColor(offer != null ? offer.placeholderColor : null, PictureIdle);
+        }
+
+        private void BindSlot(Image target, string imageUrl)
+        {
+            ImageSlot slot = EnsureSlot(target);
+            if (slot == null)
+                return;
 
             if (string.IsNullOrEmpty(imageUrl))
             {
@@ -266,39 +298,45 @@ namespace GeoAds
 
             if (imageUrl == slot.loadedUrl)
                 return;
+            if (imageUrl == slot.pendingUrl && slot.loading)
+                return; // already on its way
 
+            // new image: show the prefab look until it arrives, never the previous offer's photo
             CancelSlot(slot);
+            target.sprite = slot.defaultSprite;
+            target.color = slot.defaultColor;
+            ReleaseSlotPicture(slot);
+            slot.loadedUrl = null;
             slot.pendingUrl = imageUrl;
-            if (isActiveAndEnabled && slot.loadRoutine == null)
-                slot.loadRoutine = StartCoroutine(LoadPicture(slot));
+            if (isActiveAndEnabled)
+                StartLoad(slot);
         }
 
-        private IEnumerator LoadPicture(ImageSlot slot)
+        private void StartLoad(ImageSlot slot)
         {
             string url = slot.pendingUrl;
-            slot.request = UnityWebRequestTexture.GetTexture(url);
-            slot.request.timeout = PictureTimeoutSeconds;
-            yield return slot.request.SendWebRequest();
+            int version = ++slot.requestVersion;
+            slot.loading = true;
+            GeoImageLoader.Load(url, texture => OnPictureLoaded(slot, version, url, texture));
+        }
 
-            UnityWebRequest request = slot.request;
-            slot.request = null;
-            slot.loadRoutine = null;
-            slot.pendingUrl = null;
-
-            if (request.result != UnityWebRequest.Result.Success)
-            {
-                Debug.LogWarning("[GeoAds] picture download failed: " + request.error + " (" + url + ")");
-                request.Dispose();
-                yield break;
-            }
-
-            Texture2D texture = DownloadHandlerTexture.GetContent(request);
-            request.Dispose();
-            if (texture == null || slot.target == null)
+        private void OnPictureLoaded(ImageSlot slot, int version, string url, Texture2D texture)
+        {
+            // card destroyed, slot cancelled or rebound to another image: this result is stale
+            if (this == null || version != slot.requestVersion || slot.target == null)
             {
                 if (texture != null)
                     Destroy(texture);
-                yield break;
+                return;
+            }
+
+            slot.loading = false;
+            slot.pendingUrl = null;
+
+            if (texture == null)
+            {
+                ShowFallback(slot);
+                return;
             }
 
             ReleaseSlotPicture(slot);
@@ -309,20 +347,21 @@ namespace GeoAds
             slot.loadedUrl = url;
         }
 
+        /// <summary>Image could not be loaded: prefab sprite; the product picture also gets the offer colour.</summary>
+        private void ShowFallback(ImageSlot slot)
+        {
+            ReleaseSlotPicture(slot);
+            slot.target.sprite = slot.defaultSprite;
+            slot.target.color = slot.target == picture ? PicturePlaceholder() : slot.defaultColor;
+        }
+
+        /// <summary>Forgets an in-flight download; its late result is ignored and its texture destroyed.</summary>
         private void CancelSlot(ImageSlot slot)
         {
-            if (slot == null)
+            if (slot == null || !slot.loading)
                 return;
-            if (slot.loadRoutine != null)
-            {
-                StopCoroutine(slot.loadRoutine);
-                slot.loadRoutine = null;
-            }
-            if (slot.request != null)
-            {
-                slot.request.Dispose();
-                slot.request = null;
-            }
+            slot.requestVersion++;
+            slot.loading = false;
         }
 
         private void ReleaseSlotPicture(ImageSlot slot)
@@ -344,8 +383,8 @@ namespace GeoAds
             public Color defaultColor;
             public string pendingUrl;
             public string loadedUrl;
-            public Coroutine loadRoutine;
-            public UnityWebRequest request;
+            public int requestVersion;
+            public bool loading;
             public Texture2D texture;
             public Sprite sprite;
         }

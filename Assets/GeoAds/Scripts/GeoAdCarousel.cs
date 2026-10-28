@@ -103,7 +103,9 @@ namespace GeoAds
             }
 
             cardTemplate.gameObject.SetActive(true);
-            cardTemplate.Bind(offers[0]);
+
+            // clone from the clean prefab look, never from a card holding a downloaded photo
+            cardTemplate.ResetImages();
 
             for (int i = 1; i < count; i++)
             {
@@ -115,6 +117,8 @@ namespace GeoAds
                     card.Bind(offers[i]);
                 clones.Add(clone);
             }
+
+            cardTemplate.Bind(offers[0]); // last, after cloning; it stays the first sibling, so order is 1..N
 
             pageCount = count;
             RebuildLayout();
