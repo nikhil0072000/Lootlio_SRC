@@ -31,6 +31,8 @@ namespace GeoAds
         [SerializeField] private RectTransform content;
         [SerializeField] private ScrollRect scroll;
         [SerializeField] private Button closeButton; // optional
+        [Tooltip("Popup shown when an internal (merchant) card is tapped. Made by Tools > GeoAds > Build Coupon Popup Prefab.")]
+        [SerializeField] private GeoCouponPopup couponPopupPrefab;
 
         [Header("Paging")]
         [Tooltip("Seconds to glide to the next card after your finger lifts. 0 = jump.")]
@@ -52,8 +54,15 @@ namespace GeoAds
         /// </summary>
         public static bool InputLocked { get; private set; }
 
+        private void Awake()
+        {
+            GeoCouponPopup.Register(couponPopupPrefab);
+        }
+
         public void Show()
         {
+            GeoCouponPopup.Register(couponPopupPrefab);
+
             if (!HasTemplate && !IsHandMade)
                 EnsureBuilt();
             else

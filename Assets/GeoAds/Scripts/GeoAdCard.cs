@@ -233,12 +233,44 @@ namespace GeoAds
                 ? offer.coupon.code
                 : GeoCouponGenerator.Generate(string.IsNullOrEmpty(offer.type) ? "GEO" : offer.type);
 
-            GUIUtility.systemCopyBuffer = code;
+            if (IsAffiliate(offer))
+            {
+                // external partner deal: code on the clipboard for the partner checkout, then the browser
+                string url = AffiliateLink(offer);
+                if (url != null)
+                {
+                    if (offer.coupon != null && !string.IsNullOrEmpty(offer.coupon.code))
+                        GUIUtility.systemCopyBuffer = offer.coupon.code;
+                    Application.OpenURL(url);
+                    return;
+                }
+                Debug.LogWarning("[GeoAds] affiliate offer '" + offer.id + "' has no https link - showing its coupon instead.");
+            }
 
-            if (!string.IsNullOrEmpty(offer.actionUrl))
-                Application.OpenURL(offer.actionUrl);
-            else if (offer.coupon != null)
-                GeoCouponPopup.Show(code, offer); // offline/mock offers have no URL
+            // internal (merchant) offer: coupon popup, never leaves the game
+            GeoCouponPopup.Show(code, offer);
+        }
+
+        /// <summary>Affiliate = external partner deal. Anything unclear is treated as internal.</summary>
+        private static bool IsAffiliate(GeoAdOffer source)
+        {
+            return source.isAffiliate || source.type == "affiliate";
+        }
+
+        /// <summary>affiliateUrl, else actionUrl; only https links are opened.</summary>
+        private static string AffiliateLink(GeoAdOffer source)
+        {
+            if (IsHttps(source.affiliateUrl))
+                return source.affiliateUrl;
+            if (IsHttps(source.actionUrl))
+                return source.actionUrl;
+            return null;
+        }
+
+        private static bool IsHttps(string url)
+        {
+            return !string.IsNullOrEmpty(url)
+                && url.StartsWith("https://", System.StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>0.06 km near by, 6.2 km further out - the geo proof on the card.</summary>

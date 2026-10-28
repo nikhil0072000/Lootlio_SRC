@@ -1,3 +1,4 @@
+using System.Collections;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -5,131 +6,161 @@ using UnityEngine.UI;
 namespace GeoAds
 {
     /// <summary>
-    /// Modal coupon popup: shows the claimed code, a mock copy button, QR placeholder
-    /// text, and a close button. Fully runtime-built; no scene or prefab dependency.
+    /// Coupon popup for internal (merchant) offers. All visuals live in
+    /// Assets/GeoAds/Prefabs/GeoCouponPopup.prefab (made by Tools > GeoAds > Build Coupon Popup Prefab)
+    /// and can be restyled freely in the editor; this script only fills the assigned labels.
+    /// The carousel registers the prefab (its "Coupon Popup Prefab" slot); one instance is
+    /// created on first use and reused after that.
     /// </summary>
     public class GeoCouponPopup : MonoBehaviour
     {
-        private const int SortOrder = 950;
+        [Header("Labels (filled per offer; empty offer values keep the prefab text)")]
+        [SerializeField] private TextMeshProUGUI storeLabel;
+        [SerializeField] private TextMeshProUGUI discountLabel;
+        [SerializeField] private TextMeshProUGUI codeLabel;
 
-        private static GeoCouponPopup activePopup;
+        [Header("Buttons")]
+        [SerializeField] private Button copyButton;
+        [SerializeField] private Button closeButton;
+        [Tooltip("Optional: the dark full-screen area behind the panel. Tapping it closes the popup.")]
+        [SerializeField] private Button dimmerButton;
 
-        public static void Show(string couponCode, GeoAdOffer context)
+        [Header("Copied feedback")]
+        [Tooltip("Shown after Copy is pressed, hidden again after Copied Seconds.")]
+        [SerializeField] private GameObject copiedFeedback;
+        [SerializeField] private float copiedSeconds = 1.5f;
+
+        private static GeoCouponPopup prefab;
+        private static GeoCouponPopup instance;
+        private static bool warnedMissingPrefab;
+
+        private string currentCode;
+        private string defaultStore;
+        private string defaultDiscount;
+        private Coroutine copiedRoutine;
+
+        /// <summary>Remembers which prefab to use. Called by GeoAdCarousel from its Inspector slot.</summary>
+        public static void Register(GeoCouponPopup popupPrefab)
         {
-            if (activePopup != null)
+            if (popupPrefab != null)
+                prefab = popupPrefab;
+        }
+
+        /// <summary>Shows the popup for this offer, creating the instance on first use.</summary>
+        public static void Show(string couponCode, GeoAdOffer offer)
+        {
+            if (instance == null)
             {
-                activePopup.Refresh(couponCode, context);
-                return;
+                if (prefab == null)
+                {
+                    // no UI without the prefab - still give the player the code
+                    if (!string.IsNullOrEmpty(couponCode))
+                        GUIUtility.systemCopyBuffer = couponCode;
+                    if (!warnedMissingPrefab)
+                    {
+                        Debug.LogWarning("[GeoAds] Coupon popup prefab is not assigned (GeoAdCarousel > Coupon Popup Prefab). "
+                            + "The code was copied to the clipboard instead. Run Tools > GeoAds > Build Coupon Popup Prefab.");
+                        warnedMissingPrefab = true;
+                    }
+                    return;
+                }
+
+                instance = Instantiate(prefab);
+                instance.name = prefab.name;
             }
 
-            var host = new GameObject("GeoCouponPopup", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster), typeof(GeoCouponPopup));
-            activePopup = host.GetComponent<GeoCouponPopup>();
-            activePopup.Build(couponCode, context);
+            instance.Fill(couponCode, offer);
+            instance.gameObject.SetActive(true);
         }
 
+        /// <summary>Hides the popup if it is open.</summary>
         public static void Close()
         {
-            if (activePopup != null)
-                Destroy(activePopup.gameObject);
-            activePopup = null;
+            if (instance != null)
+                instance.gameObject.SetActive(false);
         }
 
-        private TextMeshProUGUI codeLabel;
-
-        private void Build(string couponCode, GeoAdOffer context)
+        // Enter Play Mode without domain reload keeps statics; start every session clean.
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStatics()
         {
-            Canvas canvas = GetComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = SortOrder;
-            var scaler = GetComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(640, 960);
-            scaler.matchWidthOrHeight = 1f;
-
-            var dimmer = new GameObject("Dimmer", typeof(RectTransform), typeof(Image), typeof(Button));
-            var drect = (RectTransform)dimmer.transform;
-            drect.SetParent(transform, false);
-            drect.anchorMin = Vector2.zero;
-            drect.anchorMax = Vector2.one;
-            drect.offsetMin = Vector2.zero;
-            drect.offsetMax = Vector2.zero;
-            var dimImage = dimmer.GetComponent<Image>();
-            dimImage.color = new Color(0f, 0f, 0f, 0.7f);
-            dimmer.GetComponent<Button>().onClick.AddListener(Close);
-
-            var panel = new GameObject("Panel", typeof(RectTransform), typeof(Image));
-            var prect = (RectTransform)panel.transform;
-            prect.SetParent(transform, false);
-            prect.sizeDelta = new Vector2(480, 520);
-            panel.GetComponent<Image>().color = new Color(0.12f, 0.16f, 0.22f);
-
-            CreateLabel(prect, "Title", "Coupon Claimed!", 40, FontStyles.Bold, new Vector2(0, 190));
-            CreateLabel(prect, "Store", context != null && !string.IsNullOrEmpty(context.storeName) ? context.storeName : "Partner store", 28, FontStyles.Normal, new Vector2(0, 130));
-
-            codeLabel = CreateLabel(prect, "Code", "-", 46, FontStyles.Bold, new Vector2(0, 40));
-            codeLabel.color = new Color(1f, 0.85f, 0.2f);
-
-            var copyBtn = CreateButton(prect, "Copy", new Vector2(0, -60));
-            copyBtn.onClick.AddListener(() => MockCopy(codeLabel.text));
-
-            var qrLabel = CreateLabel(prect, "QRPlaceholder", "[ QR placeholder ]", 24, FontStyles.Italic, new Vector2(0, -150));
-            qrLabel.color = new Color(1f, 1f, 1f, 0.5f);
-
-            var closeBtn = CreateButton(prect, "Close", new Vector2(0, -220));
-            closeBtn.onClick.AddListener(Close);
-
-            Refresh(couponCode, context);
+            prefab = null;
+            instance = null;
+            warnedMissingPrefab = false;
         }
 
-        private void Refresh(string couponCode, GeoAdOffer context)
+        private void Awake()
         {
+            defaultStore = storeLabel != null ? storeLabel.text : string.Empty;
+            defaultDiscount = discountLabel != null ? discountLabel.text : string.Empty;
+
+            if (copyButton != null)
+                copyButton.onClick.AddListener(CopyCode);
+            if (closeButton != null)
+                closeButton.onClick.AddListener(Close);
+            if (dimmerButton != null)
+                dimmerButton.onClick.AddListener(Close);
+
+            if (copiedFeedback != null)
+                copiedFeedback.SetActive(false);
+        }
+
+        private void OnDisable()
+        {
+            if (copiedRoutine != null)
+            {
+                StopCoroutine(copiedRoutine);
+                copiedRoutine = null;
+            }
+            if (copiedFeedback != null)
+                copiedFeedback.SetActive(false);
+        }
+
+        private void OnDestroy()
+        {
+            if (instance == this)
+                instance = null;
+        }
+
+        private void Fill(string couponCode, GeoAdOffer offer)
+        {
+            currentCode = couponCode;
+
+            if (storeLabel != null)
+                storeLabel.text = offer != null && !string.IsNullOrEmpty(offer.storeName) ? offer.storeName : defaultStore;
+
+            if (discountLabel != null)
+                discountLabel.text = offer != null && offer.coupon != null && !string.IsNullOrEmpty(offer.coupon.discountText)
+                    ? offer.coupon.discountText
+                    : defaultDiscount;
+
             if (codeLabel != null && !string.IsNullOrEmpty(couponCode))
                 codeLabel.text = couponCode;
+
+            if (copiedFeedback != null)
+                copiedFeedback.SetActive(false);
         }
 
-        private void MockCopy(string text)
+        private void CopyCode()
         {
-            // MOCK COPY for now: real clipboard support is a future decision.
-            Debug.Log("[GeoAds] mock-copy: " + text);
+            if (string.IsNullOrEmpty(currentCode))
+                return;
+
+            GUIUtility.systemCopyBuffer = currentCode;
+
+            if (copiedFeedback == null)
+                return;
+            if (copiedRoutine != null)
+                StopCoroutine(copiedRoutine);
+            copiedRoutine = StartCoroutine(ShowCopied());
         }
 
-        private static TextMeshProUGUI CreateLabel(RectTransform parent, string name, string text, int size, FontStyles style, Vector2 pos)
+        private IEnumerator ShowCopied()
         {
-            var go = new GameObject(name, typeof(RectTransform));
-            var rect = (RectTransform)go.transform;
-            rect.SetParent(parent, false);
-            // stretch across the panel: -40 width = 20 px margin on each side
-            rect.anchorMin = new Vector2(0f, 0.5f);
-            rect.anchorMax = new Vector2(1f, 0.5f);
-            rect.anchoredPosition = pos;
-            rect.sizeDelta = new Vector2(-40, 70);
-
-            var label = go.AddComponent<TextMeshProUGUI>();
-            label.fontSize = size;
-            label.fontStyle = style;
-            label.color = Color.white;
-            label.text = text;
-            return label;
-        }
-
-        private static Button CreateButton(RectTransform parent, string name, Vector2 pos)
-        {
-            var go = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
-            var rect = (RectTransform)go.transform;
-            rect.SetParent(parent, false);
-            rect.anchoredPosition = pos;
-            rect.sizeDelta = new Vector2(220, 70);
-            go.GetComponent<Image>().color = new Color(0.95f, 0.6f, 0.1f);
-            var labelGo = new GameObject("Label", typeof(RectTransform));
-            var lrect = (RectTransform)labelGo.transform;
-            lrect.SetParent(rect, false);
-            var label = labelGo.AddComponent<TextMeshProUGUI>();
-            label.text = name;
-            label.fontSize = 30;
-            label.color = Color.white;
-            label.alignment = TextAlignmentOptions.Center;
-            label.rectTransform.sizeDelta = Vector2.zero;
-            return go.GetComponent<Button>();
+            copiedFeedback.SetActive(true);
+            yield return new WaitForSecondsRealtime(copiedSeconds); // works while the game is paused
+            copiedFeedback.SetActive(false);
+            copiedRoutine = null;
         }
     }
 }

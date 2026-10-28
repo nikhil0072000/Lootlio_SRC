@@ -28,7 +28,9 @@ namespace GeoAds
         public string type;        // "affiliate" | "merchant_offer" (drives the neon frame colour)
         public string category;    // "Food & Dining", "Electronics", ...
         public string ctaText;     // "Copy Code & Order" - the button caption
-        public string actionUrl;   // opened in the system browser when the card is tapped
+        public string actionUrl;   // affiliate: same as affiliateUrl; merchant: internal lootlio.com page (not opened)
+        public bool isAffiliate;   // true = external partner deal, opened in the browser
+        public string affiliateUrl; // tracking link opened for affiliate offers (falls back to actionUrl)
     }
 
     /// <summary>

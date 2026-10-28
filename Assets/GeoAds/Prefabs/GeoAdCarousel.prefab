@@ -791,6 +791,8 @@ MonoBehaviour:
   content: {fileID: 7362610928493524475}
   scroll: {fileID: 4654349178765632672}
   closeButton: {fileID: 5797809130428853747}
+  couponPopupPrefab: {fileID: 8226897488587509633, guid: 079a021b137b3a74c80a54c68a84bd4d,
+    type: 3}
   snapSeconds: 0.25
 --- !u!1 &2812842501710353538
 GameObject:
