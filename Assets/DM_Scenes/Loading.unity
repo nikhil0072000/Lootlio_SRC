@@ -9822,8 +9822,7 @@ MonoBehaviour:
     delay: 0
   - level: Lobby
     isCustomLevel: 0
-    soundsToPlay:
-    - {fileID: 8300000, guid: c578fdcdf96303342b2cc578c9958300, type: 3}
+    soundsToPlay: []
     baseVolumes:
     - 1
     playMethod: 0
