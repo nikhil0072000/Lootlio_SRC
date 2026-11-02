@@ -9,6 +9,8 @@ namespace GeoAds
     public class GeoAdShowTrigger : MonoBehaviour
     {
         [SerializeField] private bool showOnStart = true;
+        [Tooltip("Call the API again every time (each level start) instead of using the 5-minute cache.")]
+        [SerializeField] private bool forceRefresh = true;
 
         private void Start()
         {
@@ -18,7 +20,7 @@ namespace GeoAds
 
         public void Show()
         {
-            GeoAdManager.Show();
+            GeoAdManager.Show(forceRefresh);
         }
 
         public void Hide()

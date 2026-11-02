@@ -44,6 +44,16 @@ namespace GeoAds
         [Tooltip("After the last card, go back to the first card and keep going.")]
         [SerializeField] private bool loop = true;
 
+        [Header("Feed")]
+        [Tooltip("Ask GeoAdManager for ads every time this carousel appears (needed for carousels inside popups).")]
+        [SerializeField] private bool fetchOnEnable = true;
+        [Tooltip("Call the API again every time instead of using the 5-minute cache.")]
+        [SerializeField] private bool forceRefreshOnEnable = true;
+
+        private Coroutine fetchRoutine;
+        private int enabledFrame = -1;
+        private int lastFillFrame = -1;
+
         private int currentPage;
         private bool isDragging;
         private Coroutine autoScrollRoutine;
@@ -88,6 +98,14 @@ namespace GeoAds
         {
             if (this != null && gameObject != null)
                 gameObject.SetActive(false);
+        }
+
+        /// <summary>Called by GeoAdManager when the feed answers: fill the cards and show the strip.</summary>
+        public void Fill(GeoAdOffer[] offers)
+        {
+            lastFillFrame = Time.frameCount; // set first, so the OnEnable that Show() may cause does not fetch again
+            Populate(offers);
+            Show();
         }
 
         public void Populate(GeoAdOffer[] offers)
@@ -347,6 +365,20 @@ namespace GeoAds
             InputLocked = false;
             isDragging = false;
             RestartAutoScroll();
+
+            enabledFrame = Time.frameCount;
+            if (fetchOnEnable && lastFillFrame < enabledFrame)
+                fetchRoutine = StartCoroutine(RequestFeedNextFrame());
+        }
+
+        /// <summary>Waits one frame so the scene's GeoAdManager has run Awake, then asks for ads.</summary>
+        private IEnumerator RequestFeedNextFrame()
+        {
+            yield return null;
+            fetchRoutine = null;
+            if (lastFillFrame >= enabledFrame)
+                yield break; // already filled since it appeared (cache hit or manager-driven Show)
+            GeoAdManager.Request(this, forceRefreshOnEnable);
         }
 
         private void OnDisable()
@@ -354,6 +386,11 @@ namespace GeoAds
             InputLocked = false;
             isDragging = false;
             StopAutoScroll();
+            if (fetchRoutine != null)
+            {
+                StopCoroutine(fetchRoutine);
+                fetchRoutine = null;
+            }
             if (content != null)
                 content.DOKill(false);
         }
