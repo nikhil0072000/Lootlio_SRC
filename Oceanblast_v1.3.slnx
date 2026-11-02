@@ -1,8 +1,18 @@
-﻿<Solution>
+<Solution>
   <Project Path="Unity.Multiplayer.Center.Editor.csproj" />
   <Project Path="Assembly-CSharp-Editor.csproj" />
   <Project Path="Assembly-CSharp-firstpass.csproj" />
   <Project Path="Assembly-CSharp.csproj" />
   <Project Path="Assembly-CSharp-Editor-firstpass.csproj" />
+  <Project Path="Unity.InternalAPIEngineBridge.004.csproj" />
+  <Project Path="Unity.Microsoft.GDK.csproj" />
+  <Project Path="Unity.Microsoft.GDK.Discovery.csproj" />
+  <Project Path="Unity.Microsoft.GDK.Editor.csproj" />
   <Project Path="Unity.Multiplayer.Center.Common.csproj" />
+  <Project Path="Unity.TextMeshPro.csproj" />
+  <Project Path="Unity.TextMeshPro.Editor.csproj" />
+  <Project Path="UnityEditor.TestRunner.csproj" />
+  <Project Path="UnityEditor.UI.csproj" />
+  <Project Path="UnityEngine.TestRunner.csproj" />
+  <Project Path="UnityEngine.UI.csproj" />
 </Solution>

@@ -794,6 +794,8 @@ MonoBehaviour:
   couponPopupPrefab: {fileID: 8226897488587509633, guid: 079a021b137b3a74c80a54c68a84bd4d,
     type: 3}
   snapSeconds: 0.25
+  autoScrollSeconds: 5
+  loop: 1
 --- !u!1 &2812842501710353538
 GameObject:
   m_ObjectHideFlags: 0
@@ -1412,7 +1414,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: -0.0075683594, y: 0}
+  m_AnchoredPosition: {x: -0.0018615723, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0, y: 0.5}
 --- !u!114 &7795353963376807455
