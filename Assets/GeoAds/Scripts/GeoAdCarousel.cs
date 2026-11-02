@@ -38,6 +38,18 @@ namespace GeoAds
         [Tooltip("Seconds to glide to the next card after your finger lifts. 0 = jump.")]
         [SerializeField] private float snapSeconds = 0.25f;
 
+        [Header("Auto Scroll")]
+        [Tooltip("Seconds each card stays before moving to the next one. 0 = auto-scroll off.")]
+        [SerializeField] private float autoScrollSeconds = 5f;
+        [Tooltip("After the last card, go back to the first card and keep going.")]
+        [SerializeField] private bool loop = true;
+
+        private int currentPage;
+        private bool isDragging;
+        private Coroutine autoScrollRoutine;
+        private WaitForSecondsRealtime autoScrollWait;
+        private float autoScrollWaitSeconds = -1f;
+
         private const int SortOrder = 900;   // above popups, below debugging overlays
 
         private Canvas canvas;
@@ -81,16 +93,14 @@ namespace GeoAds
         public void Populate(GeoAdOffer[] offers)
         {
             if (HasTemplate)
-            {
                 PopulateFromTemplate(offers);
-                return;
-            }
-            if (IsHandMade)
-            {
+            else if (IsHandMade)
                 PopulateHandMade(offers);
-                return;
-            }
-            PopulateCodeBuilt(offers);
+            else
+                PopulateCodeBuilt(offers);
+
+            currentPage = 0;
+            RestartAutoScroll();
         }
 
         /// <summary>Clones CardTemplate once per offer, so all 18 cards are identical by construction.</summary>
@@ -193,6 +203,7 @@ namespace GeoAds
         public void OnBeginDrag(PointerEventData eventData)
         {
             InputLocked = true;
+            isDragging = true;
             if (content != null)
                 content.DOKill(false);
         }
@@ -204,8 +215,10 @@ namespace GeoAds
 
         public void OnEndDrag(PointerEventData eventData)
         {
+            isDragging = false;
             SnapToNearestPage();
             StartCoroutine(UnlockInputNextFrame());
+            RestartAutoScroll(); // a swipe resets the timer
         }
 
         private IEnumerator UnlockInputNextFrame()
@@ -224,6 +237,7 @@ namespace GeoAds
                 return;
 
             int page = Mathf.Clamp(Mathf.RoundToInt(-content.anchoredPosition.x / pageWidth), 0, pageCount - 1);
+            currentPage = page;
             float target = -page * pageWidth;
 
             scroll.StopMovement();
@@ -237,6 +251,80 @@ namespace GeoAds
 
             content.DOKill(true);
             content.DOAnchorPosX(target, snapSeconds).SetEase(Ease.OutCubic).SetUpdate(true);
+        }
+
+        /// <summary>Glides to one card with the same ease and speed as the swipe snap.</summary>
+        private void GoToPage(int page)
+        {
+            if (scroll == null || content == null || pageCount <= 1)
+                return;
+
+            float pageWidth = PageWidth();
+            if (pageWidth <= 1f)
+                return;
+
+            currentPage = Mathf.Clamp(page, 0, pageCount - 1);
+            float target = -currentPage * pageWidth;
+
+            scroll.StopMovement();
+            content.DOKill(false);
+            if (snapSeconds <= 0f)
+            {
+                Vector2 pos = content.anchoredPosition;
+                pos.x = target;
+                content.anchoredPosition = pos;
+                return;
+            }
+            content.DOAnchorPosX(target, snapSeconds).SetEase(Ease.OutCubic).SetUpdate(true);
+        }
+
+        // ---------------------------------------------------------------- auto scroll
+
+        private void RestartAutoScroll()
+        {
+            StopAutoScroll();
+            if (autoScrollSeconds <= 0f || !isActiveAndEnabled)
+                return;
+
+            if (autoScrollWait == null || !Mathf.Approximately(autoScrollWaitSeconds, autoScrollSeconds))
+            {
+                autoScrollWait = new WaitForSecondsRealtime(autoScrollSeconds);
+                autoScrollWaitSeconds = autoScrollSeconds;
+            }
+            autoScrollRoutine = StartCoroutine(AutoScrollLoop());
+        }
+
+        private void StopAutoScroll()
+        {
+            if (autoScrollRoutine != null)
+            {
+                StopCoroutine(autoScrollRoutine);
+                autoScrollRoutine = null;
+            }
+        }
+
+        private IEnumerator AutoScrollLoop()
+        {
+            while (true)
+            {
+                autoScrollWait.Reset();
+                yield return autoScrollWait;
+
+                if (isDragging || pageCount <= 1)
+                    continue;
+
+                int next = currentPage + 1;
+                if (next >= pageCount)
+                {
+                    if (!loop)
+                    {
+                        autoScrollRoutine = null;
+                        yield break;
+                    }
+                    next = 0;
+                }
+                GoToPage(next);
+            }
         }
 
         /// <summary>One page is one card: content width / card count (padding and spacing are 0).</summary>
@@ -257,11 +345,15 @@ namespace GeoAds
         private void OnEnable()
         {
             InputLocked = false;
+            isDragging = false;
+            RestartAutoScroll();
         }
 
         private void OnDisable()
         {
             InputLocked = false;
+            isDragging = false;
+            StopAutoScroll();
             if (content != null)
                 content.DOKill(false);
         }
