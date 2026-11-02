@@ -899,6 +899,28 @@ public class SoundManager : antilunchbox.Singleton<SoundManager>
 		return Instance.IsPlaying(GetCurrentSong());
 	}
 
+	// Start position for the next time this clip begins in a sound connection (used to resume BGM across levels).
+	private AudioClip pendingStartClip;
+
+	private int pendingStartSamples;
+
+	public static void SetNextStartSample(AudioClip clip, int samples)
+	{
+		Instance.pendingStartClip = clip;
+		Instance.pendingStartSamples = samples;
+	}
+
+	private void ApplyPendingStartSample(AudioSource source)
+	{
+		if (pendingStartClip == null || source == null || source.clip != pendingStartClip)
+		{
+			return;
+		}
+		source.timeSamples = Mathf.Clamp(pendingStartSamples, 0, Mathf.Max(0, source.clip.samples - 1));
+		pendingStartClip = null;
+		pendingStartSamples = 0;
+	}
+
 	public static int GetTrackNumber(AudioClip clip)
 	{
 		return GetCurrentSongList().IndexOf(clip);
@@ -1980,6 +2002,9 @@ public class SoundManager : antilunchbox.Singleton<SoundManager>
 			yield break;
 		}
 		currentSoundConnection = sc;
+		// Clear any single-track loop flag left by a previous connection.
+		audios[0].loop = false;
+		audios[1].loop = false;
 		if (sc.soundsToPlay.Count == 0)
 		{
 			StartCoroutine("CrossoutAll", crossDuration);
@@ -2007,11 +2032,26 @@ public class SoundManager : antilunchbox.Singleton<SoundManager>
 				PlayClip(sc.soundsToPlay[songPlaying], sc.baseVolumes[songPlaying]);
 				movingOnFromSong = false;
 				currentSource = IsPlaying(sc.soundsToPlay[songPlaying], regardlessOfCrossOut: false);
+				ApplyPendingStartSample(currentSource);
 				if (currentSource != null)
 				{
-					while ((ignoreFromLosingFocus || ((currentSource.isPlaying || isPaused || currentSource.mute) && (float)(currentSource.clip.samples - currentSource.timeSamples) * 1f / ((float)currentSource.clip.frequency * 1f) > modifiedCrossDuration)) && !skipSongs)
+					// A single track loops on its AudioSource, so it always plays to its real end
+					// (no early 5 s crossfade into a fresh copy). Playlists keep the crossfade.
+					bool singleTrack = sc.soundsToPlay.Count == 1;
+					currentSource.loop = singleTrack;
+					if (singleTrack)
 					{
-						yield return null;
+						while ((ignoreFromLosingFocus || currentSource.isPlaying || isPaused || currentSource.mute) && !skipSongs)
+						{
+							yield return null;
+						}
+					}
+					else
+					{
+						while ((ignoreFromLosingFocus || ((currentSource.isPlaying || isPaused || currentSource.mute) && (float)(currentSource.clip.samples - currentSource.timeSamples) * 1f / ((float)currentSource.clip.frequency * 1f) > modifiedCrossDuration)) && !skipSongs)
+						{
+							yield return null;
+						}
 					}
 				}
 				movingOnFromSong = true;
