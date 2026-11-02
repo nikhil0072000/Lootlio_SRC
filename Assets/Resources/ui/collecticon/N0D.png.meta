@@ -1,16 +1,13 @@
 fileFormatVersion: 2
 guid: 296a58d0cdd80914786ce4a1134c86cb
 TextureImporter:
-  internalIDToNameTable:
-  - first:
-      213: 21300018
-    second: SR_icon_star
+  internalIDToNameTable: []
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
     mipMapMode: 0
     enableMipMap: 0
-    sRGBTexture: 0
+    sRGBTexture: 1
     linearTexture: 0
     fadeOut: 0
     borderMipMap: 0
@@ -33,7 +30,7 @@ TextureImporter:
   generateCubemap: 6
   cubemapConvolution: 0
   seamlessCubemap: 0
-  textureFormat: 4
+  textureFormat: 1
   maxTextureSize: 2048
   textureSettings:
     serializedVersion: 2
@@ -42,21 +39,21 @@ TextureImporter:
     mipBias: 0
     wrapU: 1
     wrapV: 1
-    wrapW: 1
+    wrapW: 0
   nPOTScale: 0
   lightmap: 0
   compressionQuality: 50
   spriteMode: 1
   spriteExtrude: 1
   spriteMeshType: 1
-  alignment: 9
+  alignment: 0
   spritePivot: {x: 0.5, y: 0.5}
-  spritePixelsToUnits: 270
+  spritePixelsToUnits: 100
   spriteBorder: {x: 0, y: 0, z: 0, w: 0}
   spriteGenerateFallbackPhysicsShape: 1
   alphaUsage: 1
   alphaIsTransparency: 1
-  spriteTessellationDetail: 0
+  spriteTessellationDetail: -1
   textureType: 8
   textureShape: 1
   singleChannelComponent: 0
@@ -66,9 +63,9 @@ TextureImporter:
   compressionQualitySet: 0
   textureFormatSet: 0
   ignorePngGamma: 0
-  applyGammaDecoding: 1
+  applyGammaDecoding: 0
   swizzle: 50462976
-  cookieLightType: 1
+  cookieLightType: 0
   platformSettings:
   - serializedVersion: 4
     buildTarget: DefaultTexturePlatform
@@ -84,20 +81,20 @@ TextureImporter:
     androidETC2FallbackOverride: 0
     forceMaximumCompressionQuality_BC6H_BC7: 0
   - serializedVersion: 4
-    buildTarget: Android
+    buildTarget: Standalone
     maxTextureSize: 2048
     resizeAlgorithm: 0
-    textureFormat: 4
+    textureFormat: -1
     textureCompression: 1
     compressionQuality: 50
     crunchedCompression: 0
     allowsAlphaSplitting: 0
-    overridden: 1
+    overridden: 0
     ignorePlatformSupport: 0
     androidETC2FallbackOverride: 0
     forceMaximumCompressionQuality_BC6H_BC7: 0
   - serializedVersion: 4
-    buildTarget: Standalone
+    buildTarget: Android
     maxTextureSize: 2048
     resizeAlgorithm: 0
     textureFormat: -1
@@ -125,55 +122,9 @@ TextureImporter:
   spriteSheet:
     serializedVersion: 2
     sprites: []
-    outline:
-    - - {x: -72, y: -65}
-      - {x: -72, y: 43}
-      - {x: -71, y: -69}
-    - - {x: -26, y: 69}
-      - {x: -71, y: -69}
-      - {x: -72, y: 43}
-    - - {x: 57, y: -69}
-      - {x: -71, y: -69}
-      - {x: -26, y: 69}
-    - - {x: 36, y: 69}
-      - {x: 57, y: -69}
-      - {x: -26, y: 69}
-    - - {x: 72, y: 37}
-      - {x: 57, y: -69}
-      - {x: 36, y: 69}
-    - - {x: 72, y: -8}
-      - {x: 57, y: -69}
-      - {x: 72, y: 37}
+    outline: []
     customData: 
-    physicsShape:
-    - - {x: 46, y: -69}
-      - {x: 51, y: -63}
-      - {x: 50, y: -38}
-      - {x: 45, y: -20}
-      - {x: 69, y: 1}
-      - {x: 72, y: 6}
-      - {x: 72, y: 24}
-      - {x: 61, y: 29}
-      - {x: 24, y: 41}
-      - {x: 19, y: 51}
-      - {x: 12, y: 63}
-      - {x: 6, y: 69}
-      - {x: -6, y: 69}
-      - {x: -8, y: 68}
-      - {x: -14, y: 61}
-      - {x: -28, y: 33}
-      - {x: -64, y: 27}
-      - {x: -72, y: 21}
-      - {x: -72, y: 8}
-      - {x: -67, y: -1}
-      - {x: -45, y: -23}
-      - {x: -49, y: -42}
-      - {x: -52, y: -59}
-      - {x: -47, y: -69}
-      - {x: -26, y: -69}
-      - {x: 1, y: -54}
-      - {x: 18, y: -65}
-      - {x: 26, y: -69}
+    physicsShape: []
     bones: []
     spriteID: 5e97eb03825dee720800000000000000
     internalID: 0
