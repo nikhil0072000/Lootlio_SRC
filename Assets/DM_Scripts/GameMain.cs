@@ -415,6 +415,7 @@ public class GameMain : MonoBehaviour
 			ProcessAfterOnMessageStartCompleted();
 		}
 		CPanelGameUI.Instance.ShowUITween();
+		SaveBgmPosition();
 		SoundManager.StopMusicImmediately();
 		float delay = 0f;
 		switch (mapData.target)
@@ -467,8 +468,30 @@ public class GameMain : MonoBehaviour
 		PlayGameBGM();
 	}
 
+	// BGM position kept between levels so the track continues instead of restarting.
+	private static AudioClip bgmResumeClip;
+
+	private static int bgmResumeSamples;
+
+	private static void SaveBgmPosition()
+	{
+		AudioSource source = SoundManager.GetCurrentAudioSource();
+		if (source == null || !source.isPlaying || source.clip == null)
+		{
+			return;
+		}
+		bgmResumeClip = source.clip;
+		bgmResumeSamples = source.timeSamples;
+	}
+
 	private void PlayGameBGM()
 	{
+		if (bgmResumeClip != null)
+		{
+			SoundManager.SetNextStartSample(bgmResumeClip, bgmResumeSamples);
+			bgmResumeClip = null;
+			bgmResumeSamples = 0;
+		}
 		SoundManager.PlayConnection("BGM");
 	}
 
@@ -2212,6 +2235,7 @@ public class GameMain : MonoBehaviour
 		{
 			NetRequestLevelClearRateLog.RequestLevelClear(MapData.main.gid);
 			MonoSingleton<UIManager>.Instance.CancelBooster();
+			SaveBgmPosition();
 			SoundManager.StopMusicImmediately();
 			isPlaying = false;
 			isGameResult = true;
