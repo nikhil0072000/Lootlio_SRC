@@ -415,8 +415,7 @@ public class GameMain : MonoBehaviour
 			ProcessAfterOnMessageStartCompleted();
 		}
 		CPanelGameUI.Instance.ShowUITween();
-		SaveBgmPosition();
-		SoundManager.StopMusicImmediately();
+		// The BGM is no longer stopped here; the goal-intro SFX plays over it.
 		float delay = 0f;
 		switch (mapData.target)
 		{
@@ -449,7 +448,11 @@ public class GameMain : MonoBehaviour
 			delay = 2.7f;
 			break;
 		}
-		StartCoroutine(SoundConnectDelay(delay));
+		if (!IsBgmPlaying())
+		{
+			// Only when nothing is playing yet: start the BGM after the goal intro.
+			StartCoroutine(SoundConnectDelay(delay));
+		}
 		MonoSingleton<AppEventManager>.Instance.SendAppEventTimeSpent(SceneType.Lobby, MapData.main.gid);
 		doingStartCameraTween = true;
 		BoardManager.main.slotGroup.transform.DOScale(new Vector3(0.7f, 0.7f, 1f), 0.8f).SetEase(Ease.OutQuad).SetDelay(0.1f)
@@ -468,31 +471,32 @@ public class GameMain : MonoBehaviour
 		PlayGameBGM();
 	}
 
-	// BGM position kept between levels so the track continues instead of restarting.
-	private static AudioClip bgmResumeClip;
-
-	private static int bgmResumeSamples;
-
-	private static void SaveBgmPosition()
-	{
-		AudioSource source = SoundManager.GetCurrentAudioSource();
-		if (source == null || !source.isPlaying || source.clip == null)
-		{
-			return;
-		}
-		bgmResumeClip = source.clip;
-		bgmResumeSamples = source.timeSamples;
-	}
+	private const string BgmConnection = "BGM";
 
 	private void PlayGameBGM()
 	{
-		if (bgmResumeClip != null)
+		EnsureBgmPlaying();
+	}
+
+	/// <summary>True when the BGM track is already playing (so it must not be started again).</summary>
+	public static bool IsBgmPlaying()
+	{
+		SoundConnection bgm = SoundManager.GetSoundConnectionForThisLevel(BgmConnection);
+		if (bgm == null || bgm.soundsToPlay == null || bgm.soundsToPlay.Count == 0)
 		{
-			SoundManager.SetNextStartSample(bgmResumeClip, bgmResumeSamples);
-			bgmResumeClip = null;
-			bgmResumeSamples = 0;
+			return false;
 		}
-		SoundManager.PlayConnection("BGM");
+		AudioClip playing = SoundManager.GetCurrentSong();
+		return playing != null && bgm.soundsToPlay.Contains(playing);
+	}
+
+	/// <summary>One continuous BGM for Lobby and Game: starts it only when it is not already playing.</summary>
+	public static void EnsureBgmPlaying()
+	{
+		if (!IsBgmPlaying())
+		{
+			SoundManager.PlayConnection(BgmConnection);
+		}
 	}
 
 	public static void CompleteGameStart()
@@ -2235,8 +2239,6 @@ public class GameMain : MonoBehaviour
 		{
 			NetRequestLevelClearRateLog.RequestLevelClear(MapData.main.gid);
 			MonoSingleton<UIManager>.Instance.CancelBooster();
-			SaveBgmPosition();
-			SoundManager.StopMusicImmediately();
 			isPlaying = false;
 			isGameResult = true;
 			CPanelGameUI.Instance.HideUITween();
@@ -2564,7 +2566,7 @@ public class GameMain : MonoBehaviour
 		{
 			endSound.Stop();
 		}
-		SoundManager.StopMusic();
+		// The BGM keeps playing into the next level (no StopMusic here any more).
 		MonoSingleton<PopupManager>.Instance.CloseAllPopup();
 #if ENABLE_MEC
 		Timing.KillCoroutines();

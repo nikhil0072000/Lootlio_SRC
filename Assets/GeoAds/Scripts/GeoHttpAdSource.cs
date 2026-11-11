@@ -37,12 +37,30 @@ namespace GeoAds
 
         public IEnumerator FetchOffers(double lat, double lng, double radiusKm, Action<GeoAdResponse> onSuccess, Action<string> onError)
         {
-            string url = fullUrl ?? string.Format(
-                "{0}/api/ads/nearby?lat={1}&lng={2}&radius={3}",
-                baseUrl,
-                lat.ToString("R", System.Globalization.CultureInfo.InvariantCulture),
-                lng.ToString("R", System.Globalization.CultureInfo.InvariantCulture),
-                radiusKm.ToString("R", System.Globalization.CultureInfo.InvariantCulture));
+            var inv = System.Globalization.CultureInfo.InvariantCulture;
+            string url;
+            if (fullUrl != null)
+            {
+                // Send the device location to the server (only when a location was found).
+                bool hasLocation = lat != 0d || lng != 0d;
+                url = hasLocation
+                    ? string.Format(inv, "{0}{1}lat={2}&lng={3}&radius={4}",
+                        fullUrl,
+                        fullUrl.Contains("?") ? "&" : "?",
+                        lat.ToString("R", inv),
+                        lng.ToString("R", inv),
+                        radiusKm.ToString("R", inv))
+                    : fullUrl;
+            }
+            else
+            {
+                url = string.Format(
+                    "{0}/api/ads/nearby?lat={1}&lng={2}&radius={3}",
+                    baseUrl,
+                    lat.ToString("R", inv),
+                    lng.ToString("R", inv),
+                    radiusKm.ToString("R", inv));
+            }
 
             using (UnityWebRequest request = UnityWebRequest.Get(url))
             {

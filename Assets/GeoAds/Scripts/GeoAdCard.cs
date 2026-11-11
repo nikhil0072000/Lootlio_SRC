@@ -30,6 +30,10 @@ namespace GeoAds
         [Header("Prefab buttons")]
         [SerializeField] private Button claimButton;
 
+        [Header("Text")]
+        [Tooltip("Show only the offer/deal text (e.g. \"20% OFF\"); title, description, category and distance are hidden.")]
+        [SerializeField] private bool dealTextOnly = true;
+
         [Header("Legacy")]
         [SerializeField] private bool usePlaceholderColor;
 
@@ -151,6 +155,17 @@ namespace GeoAds
             if (offer == null)
                 return;
 
+            if (dealTextOnly)
+            {
+                ApplyDealTextOnly();
+                return;
+            }
+
+            SetLabelVisible(titleLabel, true);
+            SetLabelVisible(descLabel, true);
+            SetLabelVisible(categoryLabel, true);
+            SetLabelVisible(distanceLabel, true);
+
             if (titleLabel != null)
                 titleLabel.text = string.IsNullOrEmpty(offer.title) ? "(untitled offer)" : offer.title;
 
@@ -171,6 +186,43 @@ namespace GeoAds
             TextMeshProUGUI cta = CtaText();
             if (cta != null && !string.IsNullOrEmpty(offer.ctaText))
                 cta.text = offer.ctaText;
+        }
+
+        /// <summary>
+        /// Deal-only mode: the card shows just the offer/deal text (coupon discount, else the title).
+        /// The other labels are emptied and their text components turned off.
+        /// </summary>
+        private void ApplyDealTextOnly()
+        {
+            string deal = offer.coupon != null && !string.IsNullOrEmpty(offer.coupon.discountText)
+                ? offer.coupon.discountText
+                : (offer.title ?? string.Empty);
+
+            TextMeshProUGUI dealLabel = discountLabel != null ? discountLabel : titleLabel;
+            if (dealLabel != null)
+            {
+                SetLabelVisible(dealLabel, true);
+                dealLabel.text = deal;
+            }
+
+            HideUnlessDeal(titleLabel, dealLabel);
+            HideUnlessDeal(descLabel, dealLabel);
+            HideUnlessDeal(categoryLabel, dealLabel);
+            HideUnlessDeal(distanceLabel, dealLabel);
+        }
+
+        private static void HideUnlessDeal(TextMeshProUGUI label, TextMeshProUGUI dealLabel)
+        {
+            if (label == null || label == dealLabel)
+                return;
+            label.text = string.Empty;
+            SetLabelVisible(label, false);
+        }
+
+        private static void SetLabelVisible(TextMeshProUGUI label, bool visible)
+        {
+            if (label != null)
+                label.enabled = visible;
         }
 
         /// <summary>
