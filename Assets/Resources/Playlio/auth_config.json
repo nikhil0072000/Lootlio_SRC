@@ -1,5 +1,16 @@
 {
+  "mode": "mock",
   "apiBaseUrl": "",
   "origin": "",
-  "showOnLaunch": true
+  "showOnLaunch": true,
+  "endpoints": {
+    "signUp": "/api/auth/sign-up/email",
+    "signIn": "/api/auth/sign-in/email",
+    "session": "/api/auth/get-session",
+    "signOut": "/api/auth/sign-out"
+  },
+  "mock": {
+    "delaySeconds": 0.6,
+    "simulateOffline": false
+  }
 }

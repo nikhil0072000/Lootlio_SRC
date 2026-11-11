@@ -93,6 +93,13 @@ namespace Playlio.Auth
             TextMeshProUGUI title = CreateText(panel, "Playlio", 96, FontStyles.Bold, PlaylioNeonPalette.Cyan);
             SetHeight(title.gameObject, 130);
 
+            if (service != null && service.IsMock)
+            {
+                // test builds must never be mistaken for the live server
+                TextMeshProUGUI mockTag = CreateText(panel, "MOCK MODE: no server", 34, FontStyles.Bold, PlaylioNeonPalette.Orange);
+                SetHeight(mockTag.gameObject, 50);
+            }
+
             RectTransform tabs = CreateRow(panel, 110);
             signInTab = CreateButton(tabs, "Sign In", out _);
             signUpTab = CreateButton(tabs, "Sign Up", out _);
