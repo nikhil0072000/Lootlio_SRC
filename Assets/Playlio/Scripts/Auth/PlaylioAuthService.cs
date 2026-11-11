@@ -16,17 +16,19 @@ namespace Playlio.Auth
         public event Action SignedIn;
         public event Action SignedOut;
 
-        private PlaylioApiClient api;
+        private IAuthBackend api;
 
         public bool IsSignedIn { get; private set; }
         public string UserId { get; private set; }
         public string UserName { get; private set; }
         public string UserEmail { get; private set; }
         public bool IsConfigured => api != null;
+        public bool IsMock => api is MockAuthBackend;
 
-        public void Initialize(PlaylioAuthConfig config, ISessionStore store)
+        /// <summary>backend: PlaylioApiClient (live server) or MockAuthBackend (offline testing).</summary>
+        public void Initialize(IAuthBackend backend)
         {
-            api = new PlaylioApiClient(config, store);
+            api = backend;
         }
 
         /// <summary>

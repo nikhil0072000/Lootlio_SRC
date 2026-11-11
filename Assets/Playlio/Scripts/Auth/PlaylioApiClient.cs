@@ -19,13 +19,13 @@ namespace Playlio.Auth
     }
 
     /// <summary>
-    /// Talks to Better Auth's standard endpoints (email only):
-    /// POST /api/auth/sign-up/email, POST /api/auth/sign-in/email,
-    /// GET /api/auth/get-session, POST /api/auth/sign-out.
+    /// Talks to the real Better Auth server (email only). Routes come from auth_config.json
+    /// "endpoints" (defaults: POST /api/auth/sign-up/email, POST /api/auth/sign-in/email,
+    /// GET /api/auth/get-session, POST /api/auth/sign-out).
     /// Captures the session cookie from Set-Cookie and sends it back as Cookie.
     /// The cookie is never logged.
     /// </summary>
-    public sealed class PlaylioApiClient
+    public sealed class PlaylioApiClient : IAuthBackend
     {
         private const int TimeoutSeconds = 15;
         private const string SessionMarker = "session_token=";
@@ -33,6 +33,7 @@ namespace Playlio.Auth
 
         private readonly string apiBaseUrl;
         private readonly string origin;
+        private readonly PlaylioAuthConfig.Endpoints endpoints;
         private readonly ISessionStore sessionStore;
 
         public PlaylioApiClient(PlaylioAuthConfig config, ISessionStore store)
@@ -41,6 +42,7 @@ namespace Playlio.Auth
             sessionStore = store ?? throw new ArgumentNullException(nameof(store));
             apiBaseUrl = config.apiBaseUrl;
             origin = config.origin;
+            endpoints = config.endpoints ?? new PlaylioAuthConfig.Endpoints();
         }
 
         public bool HasStoredSession => !string.IsNullOrEmpty(sessionStore.ReadCookie());
@@ -50,23 +52,23 @@ namespace Playlio.Auth
         public IEnumerator SignUpEmail(string name, string email, string password, Action<ApiResult> done)
         {
             string body = JsonUtility.ToJson(new EmailSignUpRequest { name = name, email = email, password = password });
-            yield return Send("POST", "/api/auth/sign-up/email", body, false, done);
+            yield return Send("POST", endpoints.signUp, body, false, done);
         }
 
         public IEnumerator SignInEmail(string email, string password, Action<ApiResult> done)
         {
             string body = JsonUtility.ToJson(new EmailSignInRequest { email = email, password = password });
-            yield return Send("POST", "/api/auth/sign-in/email", body, false, done);
+            yield return Send("POST", endpoints.signIn, body, false, done);
         }
 
         public IEnumerator GetSession(Action<ApiResult> done)
         {
-            yield return Send("GET", "/api/auth/get-session", null, true, done);
+            yield return Send("GET", endpoints.session, null, true, done);
         }
 
         public IEnumerator SignOut(Action<ApiResult> done)
         {
-            yield return Send("POST", "/api/auth/sign-out", "{}", true, result =>
+            yield return Send("POST", endpoints.signOut, "{}", true, result =>
             {
                 sessionStore.Clear();
                 done?.Invoke(result);
