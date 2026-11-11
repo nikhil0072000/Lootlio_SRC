@@ -802,6 +802,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GeoAds.GeoAdShowTrigger
   showOnStart: 1
+  forceRefresh: 1
 --- !u!1 &244032404
 GameObject:
   m_ObjectHideFlags: 0
@@ -20538,6 +20539,31 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 1084360081636874840, guid: 8552a3b5117401744b574e92fe977b27,
+        type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1084360081636874840, guid: 8552a3b5117401744b574e92fe977b27,
+        type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1084360081636874840, guid: 8552a3b5117401744b574e92fe977b27,
+        type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1084360081636874840, guid: 8552a3b5117401744b574e92fe977b27,
+        type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1084360081636874840, guid: 8552a3b5117401744b574e92fe977b27,
+        type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 2346259947586589183, guid: 8552a3b5117401744b574e92fe977b27,
         type: 3}
       propertyPath: m_Name
@@ -20626,7 +20652,7 @@ PrefabInstance:
     - target: {fileID: 7362610928493524475, guid: 8552a3b5117401744b574e92fe977b27,
         type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: -0.007537842
+      value: -0.007080078
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
