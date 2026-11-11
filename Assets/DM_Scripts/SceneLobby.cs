@@ -166,7 +166,8 @@ private void Start()
 	{
 		Application.targetFrameRate = GlobalSetting.FPS;
 		MonoSingleton<UIManager>.Instance.SetCoinCurrencyMenuLayer(isPopupOverLayer: false);
-		SoundManager.PlayConnection("Lobby");
+		// The "Lobby" sound connection has no clip (it cut the music dead); keep the one BGM playing.
+		GameMain.EnsureBgmPlaying();
 		LoadLevelBallList();
 		yield return null;
 		listObj[(MonoSingleton<PlayerDataManager>.Instance.CurrentLevelNo - 1) / 20].GetComponent<UIEpisodeItemList>().OnPressButton(doNotTween: true);

@@ -408,7 +408,8 @@ public class PopupGameStart : Popup, IAppEventAdWatchingFunnel
 
 	public override void OnEventOK()
 	{
-		SoundManager.Stop();
+		// Stop only the popup sounds; the BGM keeps playing into the next level.
+		SoundManager.StopSFX();
 		base.OnEventOK();
 		if (m_Type == PoupGameStartType.GameResult)
 		{
